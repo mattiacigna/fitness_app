@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Diario Fitness</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <h1>🏋️ Diario Fitness</h1>
+    <nav>
+      <a href="{{ url_for('diario', u=uid) }}">📅 Diario</a>
+      <a href="{{ url_for('progressi', u=uid) }}">📈 Progressi</a>
+      <a href="{{ url_for('allenamenti', u=uid) }}">💪 Allenamenti</a>
+      <a href="{{ url_for('alimentazione', u=uid) }}">🥗 Alimentazione</a>
+      <a href="{{ url_for('obiettivi', u=uid) }}">🎯 Obiettivi</a>
+    </nav>
+
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <form method="POST" action="{{ url_for('switch_user') }}" style="display:flex;gap:6px;align-items:center">
+        <input name="user_id" placeholder="Profilo (es. matti)" style="max-width:160px">
+        <button class="btn" type="submit">Usa</button>
+      </form>
+      <a class="btn" href="{{ url_for('export_user_data', u=uid) }}">Export</a>
+      <form method="POST" action="{{ url_for('import_user_data', u=uid) }}" enctype="multipart/form-data" style="display:flex;gap:6px;align-items:center">
+        <label class="btn">
+          Import
+          <input type="file" name="file" accept="application/json" style="display:none" onchange="this.form.submit()">
+        </label>
+      </form>
+    </div>
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

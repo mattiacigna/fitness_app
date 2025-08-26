@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h2><span class="badge">🎯 Obiettivi</span></h2>
+
+<form method="POST" class="card">
+  <b>Target calorici</b>
+  <div class="grid">
+    <label>Kcal giorno di allenamento
+      <input type="number" step="10" name="kcal_training" value="{{ goals.kcal_training }}">
+    </label>
+    <label>Kcal giorno di riposo
+      <input type="number" step="10" name="kcal_rest" value="{{ goals.kcal_rest }}">
+    </label>
+  </div>
+  <small class="muted">Questi sono i target di default usati in Alimentazione (si possono comunque sovrascrivere per singolo giorno).</small>
+</form>
+
+<form method="POST" class="card" style="margin-top:12px">
+  <b>Obiettivo peso</b>
+  <div class="grid two">
+    <label>Peso di partenza (kg)
+      <input type="number" step="0.1" name="weight_start" value="{{ goals.weight_start }}">
+    </label>
+    <label>Peso attuale (kg)
+      <input type="number" step="0.1" name="peso_attuale" value="{{ goals.peso_attuale if goals.peso_attuale is not none else '' }}" placeholder="es. pesata di oggi">
+    </label>
+    <label>Peso obiettivo (kg)
+      <input type="number" step="0.1" name="weight_target" value="{{ goals.weight_target }}">
+    </label>
+  </div>
+  <small class="muted">Il peso attuale aggiorna anche il Diario di oggi per coerenza con i progressi.</small>
+
+  <div style="margin-top:10px">
+    <button class="btn" type="submit">💾 Salva obiettivi</button>
+  </div>
+</form>
+
+<div class="card" style="margin-top:12px">
+  <b>Note rapide</b>
+  <ul class="list">
+    <li>Per registrare pesate storiche giorno-per-giorno, continua a salvarle in <b>Allenamenti → Misure</b> o nel Diario del giorno.</li>
+    <li>In <b>Alimentazione</b> puoi cambiare il target kcal solo per quella data, senza toccare i default.</li>
+  </ul>
+</div>
+{% endblock %}

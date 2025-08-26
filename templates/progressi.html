@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<h2><span class="badge">📈 Progressi</span></h2>
+
+<!-- Peso -->
+<canvas id="pesoChart"></canvas>
+<!-- Misure -->
+<canvas id="misureChart" style="margin-top:20px;"></canvas>
+<!-- Allenamenti: n. esercizi fatti -->
+<canvas id="exChart" style="margin-top:20px;"></canvas>
+<!-- Allenamenti: volume totale (serie*rep*kg) -->
+<canvas id="volChart" style="margin-top:20px;"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const records = {{ records|tojson }};
+const tstats  = {{ training_stats|tojson }};
+
+// Dati peso/misure
+const labels = records.map(r => r.data);
+const peso = records.map(r => parseFloat(r.peso || 0));
+const vita = records.map(r => parseFloat(r.vita || 0));
+const fianchi = records.map(r => parseFloat(r.fianchi || 0));
+
+// Dati allenamenti
+const tlabs = tstats.map(s => s.data);
+const exDone = tstats.map(s => s.ex_done);
+const volume = tstats.map(s => s.volume);
+
+// Grafici
+new Chart(document.getElementById('pesoChart'), {
+  type: 'line',
+  data: { labels, datasets: [{ label: 'Peso (kg)', data: peso }] },
+  options: { responsive: true }
+});
+
+new Chart(document.getElementById('misureChart'), {
+  type: 'line',
+  data: { labels, datasets: [
+    { label: 'Vita (cm)', data: vita },
+    { label: 'Fianchi (cm)', data: fianchi }
+  ]},
+  options: { responsive: true }
+});
+
+new Chart(document.getElementById('exChart'), {
+  type: 'bar',
+  data: { labels: tlabs, datasets: [{ label: 'Esercizi completati (al giorno)', data: exDone }] },
+  options: { responsive: true }
+});
+
+new Chart(document.getElementById('volChart'), {
+  type: 'line',
+  data: { labels: tlabs, datasets: [{ label: 'Volume totale (serie×rep×kg)', data: volume }] },
+  options: { responsive: true }
+});
+</script>
+{% endblock %}

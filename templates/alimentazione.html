@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block content %}
+<h2><span class="badge">🥗 Alimentazione</span></h2>
+
+<form method="GET" class="card" style="margin-bottom:12px">
+  <label>Data
+    <input type="date" name="date" value="{{ chosen_date }}">
+  </label>
+  <button class="btn" type="submit">Vai</button>
+</form>
+
+<!-- Target kcal modificabile per il giorno -->
+<form method="POST" class="card" id="kcalForm" style="margin-bottom:12px">
+  <div class="grid">
+    <div>
+      <div class="muted">Tipo giorno</div>
+      <div class="kpi">{{ 'Allenamento' if plan_type=='training' else 'Riposo' }}</div>
+    </div>
+    <label>Kcal target (base: {{ plan_kcal_target }} )
+      <input type="number" step="10" name="kcal_target" value="{{ (records and records[-1].kcal_target) or plan_kcal_target }}">
+    </label>
+  </div>
+  <small class="muted">Questo valore vale solo per <b>{{ chosen_date }}</b>. Per cambiare i target di default vai su <a href="{{ url_for('obiettivi') }}">Obiettivi</a>.</small>
+</form>
+
+<form method="POST" class="card" id="alimForm">
+  <!-- Azioni rapide -->
+  <div class="card" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px">
+    <button type="button" class="btn" id="applySug">Usa valori suggeriti per tutti i pasti</button>
+    <button type="button" class="btn" id="resetQty">Reimposta quantità previste</button>
+  </div>
+
+  <!-- Totali live -->
+  <div class="card" style="margin-bottom:12px">
+    <b>Totali live</b>
+    <div class="grid" id="totaliLive">
+      <div class="card"><b>Kcal</b><div class="kpi" id="totKcal">0</div></div>
+      <div class="card"><b>Proteine (g)</b><div class="kpi" id="totProt">0</div></div>
+      <div class="card"><b>Carbo (g)</b><div class="kpi" id="totCarb">0</div></div>
+      <div class="card"><b>Grassi (g)</b><div class="kpi" id="totFat">0</div></div>
+    </div>
+  </div>
+
+  <!-- Lista pasti -->
+  <div class="grid" id="mealsGrid">
+    {% for meal in plan.meals %}
+      <div class="card" style="padding:12px" data-key="{{ meal.key }}" data-unit="{{ meal.unit }}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <label class="switch" style="margin:0">
+            <input type="checkbox" name="meal_{{ meal.key }}_done" class="m-done">
+            <span class="slider"></span>
+            <span class="switch-label">{{ meal.label }}</span>
+          </label>
+          <small class="muted">Previsto: <span class="plannedQty">{{ meal.planned_qty }}</span> {{ meal.unit }}</small>
+        </div>
+
+        <div class="grid" style="margin-top:10px">
+          <label>Assunto ({{ meal.unit }})
+            <input class="m-qty" name="meal_{{ meal.key }}_qty" type="number" step="0.1"
+                   placeholder="es. {{ meal.planned_qty }}" value="{{ meal.planned_qty }}">
+          </label>
+
+          <label>Base di calcolo
+            <select class="m-base" name="meal_{{ meal.key }}_base">
+              <option value="{{ meal.base }}">{{ meal.base }} {{ meal.unit }}</option>
+              {% if meal.unit == 'g' and meal.base != 100 %}
+              <option value="100">100 g</option>
+              {% endif %}
+              {% if meal.unit == 'pz' and meal.base != 1 %}
+              <option value="1">1 pz</option>
+              {% endif %}
+            </select>
+          </label>
+
+          <label>Kcal per base
+            <input class="m-kcal" name="meal_{{ meal.key }}_kcal_base" type="number" step="1" value="{{ meal.kcal_base }}">
+          </label>
+          <label>Proteine per base (g)
+            <input class="m-prot" name="meal_{{ meal.key }}_prot_base" type="number" step="0.1" value="{{ meal.prot_base }}">
+          </label>
+          <label>Carbo per base (g)
+            <input class="m-carb" name="meal_{{ meal.key }}_carb_base" type="number" step="0.1" value="{{ meal.carb_base }}">
+          </label>
+          <label>Grassi per base (g)
+            <input class="m-fat" name="meal_{{ meal.key }}_fat_base" type="number" step="0.1" value="{{ meal.fat_base }}">
+          </label>
+        </div>
+
+        <div class="grid" style="margin-top:8px">
+          <div class="card"><small>Tot Kcal</small><div class="kpi m-kcal-out">0</div></div>
+          <div class="card"><small>Prot (g)</small><div class="kpi m-prot-out">0</div></div>
+          <div class="card"><small>Carb (g)</small><div class="kpi m-carb-out">0</div></div>
+          <div class="card"><small>Fat (g)</small><div class="kpi m-fat-out">0</div></div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Totali calcolati (readonly) -->
+  <div class="grid" style="margin-top:10px">
+    <label>Kcal totali (calcolate)
+      <input id="kcalHidden" type="number" step="1" name="kcal" readonly>
+    </label>
+    <label>Proteine (g) (calcolate)
+      <input id="protHidden" type="number" step="0.1" name="proteine_g" readonly>
+    </label>
+    <label>Carboidrati (g) (calcolate)
+      <input id="carbHidden" type="number" step="0.1" name="carbo_g" readonly>
+    </label>
+    <label>Grassi (g) (calcolate)
+      <input id="fatHidden" type="number" step="0.1" name="grassi_g" readonly>
+    </label>
+  </div>
+
+  <!-- Integratori lato alimentazione -->
+  <div class="grid" style="margin-top:10px">
+    <label class="switch">
+      <input type="checkbox" name="creatina_mattino">
+      <span class="slider"></span>
+      <span class="switch-label">Creatina (mattino)</span>
+    </label>
+    <label>Creatina mattino (g)
+      <input type="number" step="0.1" name="q_creatina_mattino_g" placeholder="es. 3 o 5">
+    </label>
+
+    <label class="switch">
+      <input type="checkbox" name="termogenico_mattino">
+      <span class="slider"></span>
+      <span class="switch-label">Termogenico (mattino)</span>
+    </label>
+    <label>Termogenico (pasticche)
+      <input type="number" step="1" name="q_termogenico_mattino_pill" placeholder="1 o 2">
+    </label>
+
+    <label class="switch">
+      <input type="checkbox" name="proteine_pasto">
+      <span class="slider"></span>
+      <span class="switch-label">Proteine con i pasti</span>
+    </label>
+    <label>Proteine pasto (g)
+      <input type="number" step="1" name="q_proteine_pasto_g" placeholder="es. 25">
+    </label>
+  </div>
+
+  <label>Note
+    <textarea name="note" rows="3" placeholder="Preparazione, timing pasti, sensazioni..."></textarea>
+  </label>
+
+  <button type="submit" class="btn">Salva</button>
+</form>
+
+{% if records and records|length > 0 %}
+  {% set a = records[-1] %}
+  <div class="card" style="margin-top:14px">
+    <b>Completamento pasti ({{ a.completion }}%)</b>
+    <div class="progress"><div class="bar" style="width: {{ a.completion }}%"></div></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <b>Riepilogo salvato</b>
+    <div> Target: <b>{{ a.kcal_target }} kcal</b> • Kcal: <b>{{ a.kcal }}</b> • Proteine: <b>{{ a.proteine_g }} g</b> • Carbo: <b>{{ a.carbo_g }} g</b> • Grassi: <b>{{ a.grassi_g }} g</b></div>
+  </div>
+{% else %}
+  <div class="card" style="margin-top:14px">Nessun record salvato per questa data.</div>
+{% endif %}
+
+<script>
+(function(){
+  const form = document.getElementById('alimForm');
+  const applyBtn = document.getElementById('applySug');
+  const resetQtyBtn = document.getElementById('resetQty');
+  const SUG = {};
+  {% for meal in plan.meals %}
+    SUG["{{ meal.key }}"] = {
+      base: {{ meal.base|tojson }},
+      kcal: {{ meal.kcal_base|tojson }},
+      prot: {{ meal.prot_base|tojson }},
+      carb: {{ meal.carb_base|tojson }},
+      fat:  {{ meal.fat_base|tojson }},
+      planned_qty: {{ meal.planned_qty|tojson }},
+      unit: "{{ meal.unit }}"
+    };
+  {% endfor %}
+
+  const toNum = v => isNaN(parseFloat(v)) ? 0 : parseFloat(v);
+
+  function recalc() {
+    let totK = 0, totP = 0, totC = 0, totF = 0;
+    document.querySelectorAll('#mealsGrid > .card[data-key]').forEach(card => {
+      const done = card.querySelector('.m-done')?.checked;
+      const qty   = toNum(card.querySelector('.m-qty')?.value);
+      const base  = toNum(card.querySelector('.m-base')?.value);
+      const kcalB = toNum(card.querySelector('.m-kcal')?.value);
+      const protB = toNum(card.querySelector('.m-prot')?.value);
+      const carbB = toNum(card.querySelector('.m-carb')?.value);
+      const fatB  = toNum(card.querySelector('.m-fat')?.value);
+
+      const factor = base ? (qty / base) : 0;
+      const mk = +(factor * kcalB).toFixed(1);
+      const mp = +(factor * protB).toFixed(1);
+      const mc = +(factor * carbB).toFixed(1);
+      const mf = +(factor * fatB).toFixed(1);
+
+      card.querySelector('.m-kcal-out').textContent = mk;
+      card.querySelector('.m-prot-out').textContent = mp;
+      card.querySelector('.m-carb-out').textContent = mc;
+      card.querySelector('.m-fat-out').textContent  = mf;
+
+      if (done) { totK += mk; totP += mp; totC += mc; totF += mf; }
+    });
+
+    document.getElementById('totKcal').textContent = Math.round(totK);
+    document.getElementById('totProt').textContent = totP.toFixed(1);
+    document.getElementById('totCarb').textContent = totC.toFixed(1);
+    document.getElementById('totFat').textContent  = totF.toFixed(1);
+
+    document.getElementById('kcalHidden').value = Math.round(totK);
+    document.getElementById('protHidden').value = totP.toFixed(1);
+    document.getElementById('carbHidden').value = totC.toFixed(1);
+    document.getElementById('fatHidden').value  = totF.toFixed(1);
+  }
+
+  function applySuggested() {
+    document.querySelectorAll('#mealsGrid > .card[data-key]').forEach(card => {
+      const key = card.getAttribute('data-key');
+      const sug = SUG[key]; if (!sug) return;
+      const baseSel = card.querySelector('.m-base');
+      if (baseSel && ![...baseSel.options].some(o => o.value == String(sug.base))) {
+        const opt = document.createElement('option');
+        opt.value = String(sug.base);
+        opt.textContent = `${sug.base} ${card.getAttribute('data-unit')}`;
+        baseSel.appendChild(opt);
+      }
+      if (baseSel) baseSel.value = String(sug.base);
+      card.querySelector('.m-kcal').value = sug.kcal;
+      card.querySelector('.m-prot').value = sug.prot;
+      card.querySelector('.m-carb').value = sug.carb;
+      card.querySelector('.m-fat').value  = sug.fat;
+    });
+    recalc();
+  }
+
+  function resetQuantities() {
+    document.querySelectorAll('#mealsGrid > .card[data-key]').forEach(card => {
+      const key = card.getAttribute('data-key');
+      const sug = SUG[key]; if (!sug) return;
+      const qtyInput = card.querySelector('.m-qty');
+      if (qtyInput) qtyInput.value = sug.planned_qty;
+    });
+    recalc();
+  }
+
+  form.addEventListener('input', e => {
+    if (e.target.matches('.m-qty, .m-base, .m-kcal, .m-prot, .m-carb, .m-fat, .m-done')) recalc();
+  });
+  document.getElementById('applySug').addEventListener('click', applySuggested);
+  document.getElementById('resetQty').addEventListener('click', resetQuantities);
+  applySuggested();
+  recalc();
+})();
+</script>
+{% endblock %}

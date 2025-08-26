@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block content %}
+<h2><span class="badge">📅 Diario</span></h2>
+
+<!-- Navigazione (solo lettura) -->
+<form method="GET" class="card sticky-nav" id="navDateForm">
+  <div class="grid">
+    <label>Data
+      <input type="date" name="date" id="datePicker" value="{{ ref_date }}">
+    </label>
+    <label>Intervallo
+      <select name="scope" id="scopeSel">
+        <option value="daily" {{ 'selected' if scope=='daily' else '' }}>Giorno</option>
+        <option value="weekly" {{ 'selected' if scope=='weekly' else '' }}>Settimana</option>
+        <option value="monthly" {{ 'selected' if scope=='monthly' else '' }}>Mese</option>
+      </select>
+    </label>
+  </div>
+  <div class="chiprow">
+    <button type="button" class="chip" data-shift="-1">◀ Giorno</button>
+    <button type="button" class="chip" data-shift="1">▶ Giorno</button>
+    <button type="button" class="chip" data-shift="-7">◀ 7g</button>
+    <button type="button" class="chip" data-shift="7">▶ 7g</button>
+    <button type="button" class="chip" data-shift="-30">◀ 30g</button>
+    <button type="button" class="chip" data-shift="30">▶ 30g</button>
+    <button class="chip primary" type="submit">Vai</button>
+  </div>
+</form>
+
+<!-- KPI integratori (SOLO LETTURA) -->
+<div class="card">
+  <b>Consumo integratori — {{ 'Giorno' if scope=='daily' else ('Settimana' if scope=='weekly' else 'Mese') }}</b>
+  <div class="grid" style="margin-top:8px">
+    <div class="card">
+      <div class="muted">Creatina</div>
+      <div class="kpi">{{ agg.creatina_g }} <small>g</small></div>
+    </div>
+    <div class="card">
+      <div class="muted">Pre-Workout</div>
+      <div class="kpi">{{ agg.preworkout_pill }} <small>pz</small></div>
+    </div>
+    <div class="card">
+      <div class="muted">Termogenico</div>
+      <div class="kpi">{{ agg.termogenico_pill }} <small>pz</small></div>
+    </div>
+    <div class="card">
+      <div class="muted">Proteine</div>
+      <div class="kpi">{{ agg.proteine_g }} <small>g</small></div>
+    </div>
+  </div>
+  <small class="muted">I dati provengono da Allenamenti e Alimentazione. La modifica non è consentita in Diario.</small>
+</div>
+
+<!-- Obiettivo peso (grafico fluido) -->
+<div class="card">
+  <b>🎯 Obiettivo peso</b>
+  <div class="grid two">
+    <div>
+      <div class="muted">Partenza</div>
+      <div class="kpi">{{ weight_block.start }} <small>kg</small></div>
+    </div>
+    <div>
+      <div class="muted">Attuale</div>
+      <div class="kpi">{{ weight_block.current if weight_block.current is not none else '—' }} <small>kg</small></div>
+    </div>
+    <div>
+      <div class="muted">Target</div>
+      <div class="kpi">{{ weight_block.target }} <small>kg</small></div>
+    </div>
+    <div>
+      <div class="muted">Avanzamento</div>
+      <div class="kpi">{{ weight_block.progress_pct }} <small>%</small></div>
+    </div>
+  </div>
+
+  <!-- Gauge fluido -->
+  <div class="fluid-wrap">
+    <div class="fluid-gauge" data-pct="{{ weight_block.progress_pct|int }}">
+      <div class="wave"></div>
+      <div class="label">{{ weight_block.progress_pct|int }}%</div>
+    </div>
+  </div>
+  <small class="muted">L’avanzamento è calcolato dal primo peso registrato al target. Aggiorna il peso in Allenamenti → Misure oppure in Diario giornaliero del peso (se lo compili li).</small>
+</div>
+
+<!-- Misure corpo (ultima del periodo) -->
+<div class="card">
+  <b>📏 Misure corpo (ultima nel periodo)</b>
+  {% if measures_latest %}
+    <div class="grid">
+      <div class="card"><div class="muted">Data</div><div class="kpi">{{ measures_latest.data }}</div></div>
+      <div class="card"><div class="muted">Petto</div><div class="kpi">{{ measures_latest.petto or '—' }} <small>cm</small></div></div>
+      <div class="card"><div class="muted">Vita</div><div class="kpi">{{ measures_latest.vita or '—' }} <small>cm</small></div></div>
+      <div class="card"><div class="muted">Fianchi</div><div class="kpi">{{ measures_latest.fianchi or '—' }} <small>cm</small></div></div>
+      <div class="card"><div class="muted">Coscia</div><div class="kpi">{{ measures_latest.coscia or '—' }} <small>cm</small></div></div>
+      <div class="card"><div class="muted">Braccio</div><div class="kpi">{{ measures_latest.braccio or '—' }} <small>cm</small></div></div>
+    </div>
+  {% else %}
+    <div class="muted">Nessuna misurazione trovata nel periodo selezionato.</div>
+  {% endif %}
+</div>
+
+<!-- Foto progressi (anteprime) -->
+<div class="card">
+  <b>🖼️ Foto progressi</b>
+  {% if photos and photos|length > 0 %}
+    <div class="thumbs">
+      {% for p in photos %}
+        <a href="{{ p.url }}" target="_blank" class="thumb">
+          <img src="{{ p.url }}" alt="Foto {{ p.data }}">
+          <small>{{ p.data }}</small>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="muted">Nessuna foto nel periodo selezionato.</div>
+  {% endif %}
+</div>
+
+<!-- Storico ultimi 30 giorni (integratori) -->
+<details class="card">
+  <summary>🗂️ Storico integratori ultimi 30 giorni</summary>
+  <table class="table" style="margin-top:8px">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Creatina (g)</th>
+        <th>Pre-WO (pz)</th>
+        <th>Termogenico (pz)</th>
+        <th>Proteine (g)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in last_days %}
+      <tr>
+        <td>{{ r.data }}</td>
+        <td>{{ r.creatina_g }}</td>
+        <td>{{ r.preworkout_pill }}</td>
+        <td>{{ r.termogenico_pill }}</td>
+        <td>{{ r.proteine_g }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</details>
+
+<!-- (facoltativo) Alimentazione del giorno scelto -->
+{% set recs = alim_records | selectattr("data","equalto", ref_date) | list %}
+{% if recs and recs|length > 0 %}
+  {% set a = recs[-1] %}
+  <details class="card">
+    <summary>🥗 Alimentazione del {{ ref_date }}</summary>
+    <div>Completamento pasti: <b>{{ a.completion }}%</b></div>
+    <div>Totali: <b>{{ a.kcal }} kcal</b> • <b>{{ a.proteine_g }} g</b> proteine • <b>{{ a.carbo_g }} g</b> carbo • <b>{{ a.grassi_g }} g</b> grassi</div>
+    <ul class="list" style="margin-top:8px">
+      {% for m in a.meals %}
+        <li>
+          {{ '✅' if m.consumed else '—' }} {{ m.label }}
+          — {{ m.consumed_qty }} {{ m.unit }} ({{ m.meal_kcal }} kcal, P {{ m.meal_prot }} g, C {{ m.meal_carb }} g, F {{ m.meal_fat }} g)
+        </li>
+      {% endfor %}
+    </ul>
+  </details>
+{% endif %}
+
+<script>
+/* --- Navigazione per data / intervallo (solo GET) --- */
+(function(){
+  const form = document.getElementById('navDateForm');
+  const dp = document.getElementById('datePicker');
+  const scopeSel = document.getElementById('scopeSel');
+
+  function go(dateIso){
+    const p = new URLSearchParams(window.location.search);
+    p.set('date', dateIso);
+    p.set('scope', scopeSel.value || 'daily');
+    window.location = `?${p.toString()}`;
+  }
+  function shift(days){
+    const d = new Date(dp.value || new Date().toISOString().slice(0,10));
+    d.setDate(d.getDate()+days);
+    go(d.toISOString().slice(0,10));
+  }
+  form.querySelectorAll('button[data-shift]').forEach(b=>{
+    b.addEventListener('click', ()=> shift(parseInt(b.dataset.shift,10)));
+  });
+})();
+
+/* --- Gauge fluido animato --- */
+(function(){
+  const g = document.querySelector('.fluid-gauge');
+  if(!g) return;
+  const pct = parseInt(g.dataset.pct || '0', 10);
+  const wave = g.querySelector('.wave');
+  requestAnimationFrame(()=>{
+    // al primo frame imposta l’altezza del “liquido” in base al progresso
+    const level = Math.max(0, Math.min(100, pct));
+    g.style.setProperty('--fill', `${level}%`);
+    g.classList.add('animate');
+  });
+})();
+</script>
+{% endblock %}

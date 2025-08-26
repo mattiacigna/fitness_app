@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+{% block content %}
+<h2><span class="badge">💪 Allenamenti</span></h2>
+
+<!-- NAVIGAZIONE DATA (sticky su mobile) -->
+<form method="GET" class="card sticky-nav" id="navDateForm">
+  <div class="grid">
+    <label>Data
+      <input type="date" name="date" id="datePicker" value="{{ chosen_date }}">
+    </label>
+  </div>
+  <div class="chiprow">
+    <button type="button" class="chip" data-shift="-1">◀ Giorno</button>
+    <button type="button" class="chip" data-shift="1">▶ Giorno</button>
+    <button type="button" class="chip" data-shift="-7">◀ 7g</button>
+    <button type="button" class="chip" data-shift="7">▶ 7g</button>
+    <button type="button" class="chip" data-shift="-30">◀ 30g</button>
+    <button type="button" class="chip" data-shift="30">▶ 30g</button>
+    <button class="chip primary" type="submit">Vai</button>
+  </div>
+</form>
+
+<form method="POST" id="allenForm" enctype="multipart/form-data" style="padding-bottom:90px">
+  <input type="hidden" name="giorno" value="{{ weekday }}">
+
+  {% macro diff_selector(name_prefix) -%}
+    <div class="diffrow">
+      <span class="muted">Difficoltà:</span>
+      <label class="diff"><input type="radio" name="{{ name_prefix }}_diff" value="green"> <span class="dot green"></span> Facile</label>
+      <label class="diff"><input type="radio" name="{{ name_prefix }}_diff" value="yellow"> <span class="dot yellow"></span> Intermedio</label>
+      <label class="diff"><input type="radio" name="{{ name_prefix }}_diff" value="red"> <span class="dot red"></span> Difficile</label>
+    </div>
+  {%- endmacro %}
+
+  {% macro set_builder(name_prefix, default_serie, default_rep) -%}
+    <details class="setbox">
+      <summary>⚙️ Configura set</summary>
+      <div class="setgrid">
+        <label>Serie
+          <input type="number" step="1" class="sb-n" value="{{ default_serie|int if default_serie else 3 }}">
+        </label>
+        <label>Rep base
+          <input type="number" step="1" class="sb-rep" value="{{ default_rep|int if default_rep else 10 }}">
+        </label>
+        <button type="button" class="btn sb-genera">Genera</button>
+      </div>
+      <div class="setlist"></div>
+      <input type="hidden" name="{{ name_prefix }}_setdet" class="sb-output">
+      <small class="muted">Suggerimento: imposta reps/peso per ogni serie (es. 10@10, 9@5, 8@3).</small>
+    </details>
+  {%- endmacro %}
+
+  <!-- TABS SEZIONI -->
+  <div class="tabs card">
+    <button type="button" class="tab active" data-target="#tab-plan">Piano del giorno</button>
+    <button type="button" class="tab" data-target="#tab-lib">Libreria</button>
+    <button type="button" class="tab" data-target="#tab-custom">Personalizzati</button>
+  </div>
+
+  <!-- A) PIANO DEL GIORNO -->
+  <section id="tab-plan" class="tabpane show">
+    {% if plan_today and weekday in ["Monday","Tuesday","Thursday","Friday"] %}
+      {% for ex in plan_today %}
+        <div class="excard card">
+          <div class="exhead">
+            <label class="switch m-0">
+              <input type="checkbox" name="plan_{{ loop.index0 }}_use">
+              <span class="slider"></span>
+            </label>
+            <div class="exname">{{ ex.esercizio }}</div>
+            <label class="switch small">
+              <input type="checkbox" name="plan_{{ loop.index0 }}_done">
+              <span class="slider"></span>
+              <span class="switch-label">Fatto</span>
+            </label>
+          </div>
+          <div class="grid">
+            <label>Serie
+              <input name="plan_{{ loop.index0 }}_serie" value="{{ ex.serie }}">
+            </label>
+            <label>Ripetizioni
+              <input name="plan_{{ loop.index0 }}_ripetizioni" value="{{ ex.ripetizioni }}">
+            </label>
+            <label>Carico (kg)
+              <input name="plan_{{ loop.index0 }}_carico" type="number" step="0.5" placeholder="kg">
+            </label>
+          </div>
+          {{ set_builder("plan_" ~ loop.index0, ex.serie, ex.ripetizioni) }}
+          {{ diff_selector("plan_" ~ loop.index0) }}
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="card">Oggi non è un giorno di allenamento pianificato.</div>
+    {% endif %}
+  </section>
+
+  <!-- B) LIBRERIA -->
+  <section id="tab-lib" class="tabpane">
+    {% for cat_name, items in exercise_library.items() %}
+      {% set cat_idx = loop.index0 %}
+      <details class="card">
+        <summary class="catname">📂 {{ cat_name }}</summary>
+        {% for item in items %}
+          <div class="excard card inner">
+            <div class="exhead">
+              <label class="switch m-0">
+                <input type="checkbox" name="lib_{{ cat_idx }}_{{ loop.index0 }}_use">
+                <span class="slider"></span>
+              </label>
+              <div class="exname">{{ item.esercizio }}</div>
+              <label class="switch small">
+                <input type="checkbox" name="lib_{{ cat_idx }}_{{ loop.index0 }}_done">
+                <span class="slider"></span>
+                <span class="switch-label">Fatto</span>
+              </label>
+            </div>
+            <div class="grid">
+              <label>Serie
+                <input name="lib_{{ cat_idx }}_{{ loop.index0 }}_serie" placeholder="3">
+              </label>
+              <label>Ripetizioni
+                <input name="lib_{{ cat_idx }}_{{ loop.index0 }}_ripetizioni" placeholder="12">
+              </label>
+              <label>Carico (kg)
+                <input name="lib_{{ cat_idx }}_{{ loop.index0 }}_carico" type="number" step="0.5" placeholder="kg">
+              </label>
+            </div>
+            {{ set_builder("lib_" ~ cat_idx ~ "_" ~ loop.index0, 3, 12) }}
+            {{ diff_selector("lib_" ~ cat_idx ~ "_" ~ loop.index0) }}
+          </div>
+        {% endfor %}
+      </details>
+    {% endfor %}
+  </section>
+
+  <!-- C) PERSONALIZZATI -->
+  <section id="tab-custom" class="tabpane">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <b>Esercizi personalizzati</b>
+        <button type="button" class="btn" id="addRowBtn">+ Aggiungi</button>
+      </div>
+    </div>
+    <div id="customList"></div>
+  </section>
+
+  <!-- INTEGRATORI -->
+  <div class="card">
+    <b>Integratori legati alla sessione</b>
+    <div class="grid">
+      <label class="switch"><input type="checkbox" name="preworkout"><span class="slider"></span><span class="switch-label">Pre-Workout (30′ prima)</span></label>
+      <label>Pre-Workout (pz)<input type="number" step="1" name="q_preworkout_pill" placeholder="1 o 2"></label>
+      <label class="switch"><input type="checkbox" name="proteine_post"><span class="slider"></span><span class="switch-label">Proteine (post)</span></label>
+      <label>Proteine post (g)<input type="number" step="1" name="q_proteine_post_g" placeholder="25"></label>
+      <label class="switch"><input type="checkbox" name="creatina_post"><span class="slider"></span><span class="switch-label">Creatina (post)</span></label>
+      <label>Creatina post (g)<input type="number" step="0.1" name="q_creatina_post_g" placeholder="3-5"></label>
+    </div>
+  </div>
+
+  <!-- MISURE & FOTO -->
+  <div class="card">
+    <b>Misure & Foto</b>
+    <div class="grid">
+      <label>Petto (cm)<input name="mis_petto" type="number" step="0.1"></label>
+      <label>Vita (cm)<input name="mis_vita" type="number" step="0.1"></label>
+      <label>Fianchi (cm)<input name="mis_fianchi" type="number" step="0.1"></label>
+      <label>Coscia (cm)<input name="mis_coscia" type="number" step="0.1"></label>
+      <label>Braccio (cm)<input name="mis_braccio" type="number" step="0.1"></label>
+      <label>Foto (jpg/png/webp)<input name="foto" type="file" accept=".jpg,.jpeg,.png,.webp"></label>
+    </div>
+  </div>
+
+  <!-- STORICO DEL GIORNO -->
+  {% if records and records|length > 0 %}
+    {% set s = records[-1] %}
+    <div class="card">
+      <b>Completamento scheda ({{ s.completion }}%)</b>
+      <div class="progress"><div class="bar" style="width: {{ s.completion }}%"></div></div>
+    </div>
+    <details class="card">
+      <summary>🗂️ Riepilogo sessione del {{ chosen_date }}</summary>
+      <ul class="list">
+        {% for e in s.ex %}
+          <li>
+            <b>{{ e.esercizio }}</b><br>
+            Serie: {{ e.serie or '-' }} • Rep: {{ e.ripetizioni or '-' }} • Carico: {{ e.carico or '-' }}<br>
+            Set: {{ e.set_dettagli or '-' }}<br>
+            Difficoltà:
+            {% if e.difficolta == 'green' %}<span class="dot green"></span> Facile
+            {% elif e.difficolta == 'yellow' %}<span class="dot yellow"></span> Intermedio
+            {% elif e.difficolta == 'red' %}<span class="dot red"></span> Difficile
+            {% else %}—{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% else %}
+    <div class="card">Nessuna sessione salvata per questa data.</div>
+  {% endif %}
+
+  <!-- FLOATING SAVE -->
+  <div class="sticky-footer">
+    <button class="btn big" type="submit">💾 Salva sessione</button>
+  </div>
+</form>
+
+<script>
+/* ---- NAV DATA ---- */
+(function(){
+  const df = document.getElementById('navDateForm');
+  const dp = document.getElementById('datePicker');
+  function shift(days){
+    const d = new Date(dp.value || new Date().toISOString().slice(0,10));
+    d.setDate(d.getDate()+days);
+    const iso = d.toISOString().slice(0,10);
+    window.location = `?date=${iso}`;
+  }
+  df.querySelectorAll('button[data-shift]').forEach(b=>{
+    b.addEventListener('click', ()=> shift(parseInt(b.dataset.shift,10)));
+  });
+})();
+
+/* ---- TABS ---- */
+(function(){
+  const tabs = document.querySelectorAll('.tabs .tab');
+  const panes = document.querySelectorAll('.tabpane');
+  tabs.forEach(t=>{
+    t.addEventListener('click', ()=>{
+      tabs.forEach(x=>x.classList.remove('active'));
+      panes.forEach(p=>p.classList.remove('show'));
+      t.classList.add('active');
+      const pane = document.querySelector(t.dataset.target);
+      if (pane) pane.classList.add('show');
+      pane && pane.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  });
+})();
+
+/* ---- SET BUILDER ---- */
+(function(){
+  function wire(container){
+    const genBtn = container.querySelector('.sb-genera');
+    if(!genBtn) return;
+    const nEl = container.querySelector('.sb-n');
+    const repEl = container.querySelector('.sb-rep');
+    const list = container.querySelector('.setlist');
+    const out = container.querySelector('.sb-output');
+
+    function build(){
+      const n = Math.max(1, parseInt(nEl.value||3,10));
+      const rep = Math.max(1, parseInt(repEl.value||10,10));
+      list.innerHTML = '';
+      for(let i=0;i<n;i++){
+        const wrap = document.createElement('div');
+        wrap.className = 'setrow';
+        wrap.innerHTML = `
+          <span class="setidx">${i+1}</span>
+          <label>Rep<input type="number" step="1" class="sb-rep-i" value="${rep - i >= 1 ? rep - i : rep}"></label>
+          <label>Peso (kg)<input type="number" step="0.5" class="sb-kg-i" placeholder="kg"></label>
+        `;
+        list.appendChild(wrap);
+      }
+      sync();
+      list.querySelectorAll('input').forEach(inp=>inp.addEventListener('input', sync));
+      container.open = true;
+    }
+
+    function sync(){
+      const rows = [...list.querySelectorAll('.setrow')];
+      const parts = rows.map(r=>{
+        const rep = r.querySelector('.sb-rep-i').value || '0';
+        const kg  = r.querySelector('.sb-kg-i').value || '0';
+        return `${rep}@${kg}`;
+      });
+      out.value = parts.join(',');
+    }
+
+    genBtn.addEventListener('click', build);
+  }
+
+  document.querySelectorAll('.setbox').forEach(wire);
+})();
+
+/* ---- CUSTOM CARDS ---- */
+(function(){
+  let idx = 0;
+  const list = document.getElementById('customList');
+  const addBtn = document.getElementById('addRowBtn');
+
+  function addCard(){
+    const namePrefix = `cust_${idx}`;
+    const card = document.createElement('div');
+    card.className = 'excard card';
+    card.innerHTML = `
+      <div class="exhead">
+        <label class="switch m-0">
+          <input type="checkbox" name="${namePrefix}_done">
+          <span class="slider"></span>
+        </label>
+        <input class="exname-input" name="${namePrefix}_name" placeholder="Nome esercizio">
+        <button type="button" class="btn btn-danger btn-sm remove">Rimuovi</button>
+      </div>
+      <div class="grid">
+        <label>Serie<input name="${namePrefix}_serie" placeholder="3"></label>
+        <label>Ripetizioni<input name="${namePrefix}_ripetizioni" placeholder="12"></label>
+        <label>Carico (kg)<input name="${namePrefix}_carico" type="number" step="0.5" placeholder="kg"></label>
+      </div>
+      <details class="setbox">
+        <summary>⚙️ Configura set</summary>
+        <div class="setgrid">
+          <label>Serie<input type="number" step="1" class="sb-n" value="3"></label>
+          <label>Rep base<input type="number" step="1" class="sb-rep" value="12"></label>
+          <button type="button" class="btn sb-genera">Genera</button>
+        </div>
+        <div class="setlist"></div>
+        <input type="hidden" name="${namePrefix}_setdet" class="sb-output">
+      </details>
+      <div class="diffrow compact">
+        <label class="diff"><input type="radio" name="${namePrefix}_diff" value="green"> <span class="dot green"></span> Facile</label>
+        <label class="diff"><input type="radio" name="${namePrefix}_diff" value="yellow"> <span class="dot yellow"></span> Intermedio</label>
+        <label class="diff"><input type="radio" name="${namePrefix}_diff" value="red"> <span class="dot red"></span> Difficile</label>
+      </div>
+    `;
+    card.querySelector('.remove').addEventListener('click', ()=> card.remove());
+    // attiva set builder su questa card
+    (function(){
+      const container = card.querySelector('.setbox');
+      const genBtn = container.querySelector('.sb-genera');
+      const nEl = container.querySelector('.sb-n');
+      const repEl = container.querySelector('.sb-rep');
+      const listEl = container.querySelector('.setlist');
+      const out = container.querySelector('.sb-output');
+      function build(){
+        const n = Math.max(1, parseInt(nEl.value||3,10));
+        const rep = Math.max(1, parseInt(repEl.value||12,10));
+        listEl.innerHTML = '';
+        for(let i=0;i<n;i++){
+          const row = document.createElement('div');
+          row.className = 'setrow';
+          row.innerHTML = `
+            <span class="setidx">${i+1}</span>
+            <label>Rep<input type="number" step="1" class="sb-rep-i" value="${rep - i >= 1 ? rep - i : rep}"></label>
+            <label>Peso (kg)<input type="number" step="0.5" class="sb-kg-i" placeholder="kg"></label>
+          `;
+          listEl.appendChild(row);
+        }
+        sync();
+        listEl.querySelectorAll('input').forEach(inp=>inp.addEventListener('input', sync));
+        container.open = true;
+      }
+      function sync(){
+        const rows = [...listEl.querySelectorAll('.setrow')];
+        const parts = rows.map(r=>{
+          const rep = r.querySelector('.sb-rep-i').value || '0';
+          const kg  = r.querySelector('.sb-kg-i').value || '0';
+          return `${rep}@${kg}`;
+        });
+        out.value = parts.join(',');
+      }
+      genBtn.addEventListener('click', build);
+    })();
+
+    list.appendChild(card);
+    idx++;
+  }
+
+  addBtn && addBtn.addEventListener('click', addCard);
+})();
+</script>
+{% endblock %}
